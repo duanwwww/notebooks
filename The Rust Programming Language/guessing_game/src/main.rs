@@ -18,7 +18,7 @@ fn main() {
             .read_line(&mut guess) // 读取一行输入，赋值给guess, 返回值是个Result
             .expect("Failed to read line"); // 调用Result的expect方法处理Result
 
-        // 允许同名变量（自动mask掉前一个）
+        // 允许同名变量（自动shadow掉前一个）
         let guess: u32 = match guess.trim().parse() {
             Ok(num) => num, // 返回 num
             Err(_) => continue // 重新输入

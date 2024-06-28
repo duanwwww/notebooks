@@ -563,6 +563,216 @@ impl Rectangle {
 let sq = Rectangle::square(3);
 ```
 
+# Chapter6: Enums and Pattern Matching
 
+## Defining an Enum
+
+1. 基础定义和使用
+```rust
+enum IpAddrKind {
+    V4,
+    V6,
+}
+let four = IpAddrKind::V4;
+let six = IpAddrKind::V6;
+```
+2. rust的枚举有更强大的功能，每一个枚举类型可以是一个结构体
+```rust
+enum Message {
+    Quit, // 单元结构体
+    Move { x: i32, y: i32 }, // 普通结构体
+    Write(String), // 元组结构体
+    ChangeColor(i32, i32, i32), // 元组结构体
+}
+impl Message { // 对整个Message定义统一的方法
+    fn call(&self) {
+        // method body would be defined here
+    }
+}
+
+let m = Message::Write(String::from("hello"));
+m.call();
+```
+3. `Option<T>`
+```rust
+enum Option<T> {
+    None,
+    Some(T),
+}
+let some_number = Some(5); // 类型自动推导
+let some_char = Some('e'); // 类型自动推导
+
+let absent_number: Option<i32> = None; // 必须手动指定类型
+``` 
+
+## The match Control Flow Construct
+
+1. `match`表达式：穷举枚举的所有可能情况
+```rust
+enum Coin {
+    Penny,
+    Nickel,
+    Dime,
+    Quarter,
+}
+
+fn value_in_cents(coin: Coin) -> u8 {
+    match coin {
+        Coin::Penny => {
+            println!("Lucky penny!");
+            1
+        }
+        Coin::Nickel => 5,
+        Coin::Dime => 10,
+        Coin::Quarter => 25,
+    }
+}
+```
+
+2. 使用变量来匹配其余值，使用匿名变量`_`来表示此值以后不会使用
+3. `match`可以用于处理`Option`
+```rust
+fn plus_one(x: Option<i32>) -> Option<i32> {
+    match x {
+        None => None,
+        Some(i) => Some(i + 1),
+    }
+}
+
+let five = Some(5);
+let six = plus_one(five);
+let none = plus_one(None);
+```
+
+## Concise Control Flow with if let
+
+用 `if let` + `else` 来代替match进行处理
+```rust
+let config_max = Some(3u8);
+if let Some(max) = config_max {
+    println!("The maximum is configured to be {max}");
+}
+```
+
+# Managing Growing Projects with Packages, Crates, and Modules
+
+笔者感此书这里写的不是特别明白，因此笔者这里尝试按照自己的逻辑进行整理，希望使之更易读。
+
+***由于笔者的python没有系统学过面向对象，因此可能在一些理解上有误，请多多指教qwq。***
+
+## 基本思想
+
+我们学习这章的基本动机是出于以下两点考虑：
+1. 随着项目规模增大，我们必须多文件开发，但是`struct`只在定义的`scope`内可用
+2. 我们希望自己的代码有一种方式可以打包成像`Rand`那样的`package`，以便自己或其他人以后使用
+
+## Modules
+
+1. 模块`module`看起来就像一个域`scope`或命名空间那样，模块内可以是任何内容，例如函数、结构体、其他模块等等。
+```rust
+mod back_of_house {
+    pub struct Breakfast {
+        pub toast: String,
+        seasonal_fruit: String,
+    }
+
+    impl Breakfast {
+        pub fn summer(toast: &str) -> Breakfast {
+            Breakfast {
+                toast: String::from(toast),
+                seasonal_fruit: String::from("peaches"),
+            }
+        }
+    }
+}
+
+pub fn eat_at_restaurant() {
+    // Order a breakfast in the summer with Rye toast
+    let mut meal = back_of_house::Breakfast::summer("Rye");
+    // Change our mind about what bread we'd like
+    meal.toast = String::from("Wheat");
+    println!("I'd like {} toast please", meal.toast);
+
+    // The next line won't compile if we uncomment it; we're not allowed
+    // to see or modify the seasonal fruit that comes with the meal
+    // meal.seasonal_fruit = String::from("blueberries");
+}
+```
+2. 使用`pub`关键字来决定模块外部可见的接口（就像上例所展示的那样）。其他函数、结构体可以通过一定的路径直接使用被标记为`pub`的内容。
+3. 使用如下语法来声明使用一个`mod`
+```rust
+// /src/main.rs
+pub mod vegetables; // 此pub是可选的，根据你的需求决定
+```
+
+## 文件结构
+1. 在刚刚一节中我们谈到可以声明`mod`，并且，我们可以在一个文件中声明定义在其他文件中的`mod`，这才是我们的根本目的——实现多文件编程。但是我们必须告诉rust编译器怎样找到这个`mod`的定义位置。因此，我们有两种做法：
+   1. 使用默认的路径。当rust发现你使用了`mod`关键字，根据你当前文件的路径，rust编译器会自动按照以下规则寻找可能的`mod`定义：
+      1. 此处就是定义
+      2. 假如你在`crate root`文件内（也就是`/src/main.rs`和`/src/lib.rs`，稍后会提到）声明使用`mod user`，那么rust会自动去`/src/user.rs`（新版路径）和`/src/user/mod.rs`（旧版路径）文件内去寻找
+      3. 如果你不在`crate root`文件内，假设你当前的路径是`/src/net.rs`，那么rust会自动去`/src/net/user.rs`（新版路径）和`/src/net/user/mod.rs`（旧版路径）文件内去寻找
+   2. 使用use关键字指定路径。可以使用相对路径和绝对路径两种。
+      1. 相对路径：从本文件开始，使用`self`, `super`或当前模块的标识符。
+      2. 绝对路径：从`crate root`开始，对于`crate`外部文件，以`crate`的名称开始；对于`crate`内部文件，以`crate`开始。
+      3. 以下是一个样例
+      ```rust
+      // /src/lib.rs
+      mod front_of_house {
+           pub mod hosting {
+               pub fn add_to_waitlist() {}
+           }
+       }
+
+       // Absolute path
+       use crate::front_of_house::hosting;
+
+       // Relative path
+       use front_of_house::hosting;
+
+       pub fn eat_at_restaurant() {
+           hosting::add_to_waitlist();
+       }
+      ```
+2. 我们可以通过在`mod`声明和`use`前面加上`pub`关键字来将模块重新暴露给外部，以减少文件路径的长度，例如：
+```rust
+// /src/lib.rs
+pub mod user;
+
+pub use crate::front_of_house::hosting;
+```
+3. `pub use`可以让我们无需将一些`mod`设置为`pub`。在下例中，本来我们的外部代码可能需要使用`restaurant::front_of_house::hosting::add_to_waitlist()`，这要求我们将`front_of_house`设置成`pub`，但是现在可以直接使用`restaurant::hosting::add_to_waitlist()`
+```rust
+// /src/lib.rs
+mod front_of_house {
+    pub mod hosting {
+        pub fn add_to_waitlist() {}
+    }
+}
+
+pub use crate::front_of_house::hosting;
+
+pub fn eat_at_restaurant() {
+    hosting::add_to_waitlist();
+}
+```
+4. 使用`{}`合并`use`的路径
+```rust
+use std::cmp::Ordering;
+use std::io;
+
+use std::{cmp::Ordering, io};
+```
+```rust
+use std::io;
+use std::io::Write;
+
+use std::io::{self, Write};
+```
+## 基本概念补充：Packages and Crates
+
+1. `crate`：一个`crate`是rust考虑的最小代码单元，分为 `binary crate` 和 `libiary crate` 两种。`binary crate`指的是可以编译成可执行文件的一段代码（包含`main`函数），而`library crate`则不包含main函数，而是用于定义可被其他文件使用的函数
+2. `root crate`是rust编译器开始建立根模型的源文件
+3. 包`package`是一个或多个`crate`，用于提供一系列函数。它包含一个`Cargo.toml`文件来介绍如何build这些`crate`。一个`package`可以包含任意数量的`binary crate`，但是最多只能包含一个`library crate`
+4. cargo默认使用`src/main.rs`作为与包同名的`binary crate`的`root crate`，如果`src/lib.rs`存在，则会将其作为与包同名的`library crate`的`root crate`
 
 

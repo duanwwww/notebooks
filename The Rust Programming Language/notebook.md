@@ -775,4 +775,136 @@ use std::io::{self, Write};
 3. 包`package`是一个或多个`crate`，用于提供一系列函数。它包含一个`Cargo.toml`文件来介绍如何build这些`crate`。一个`package`可以包含任意数量的`binary crate`，但是最多只能包含一个`library crate`
 4. cargo默认使用`src/main.rs`作为与包同名的`binary crate`的`root crate`，如果`src/lib.rs`存在，则会将其作为与包同名的`library crate`的`root crate`
 
+# Common Collections
 
+## Storing Lists of Values with Vectors
+
+1. 创建向量`vector`有两种方法
+```rust
+let v: Vec<i32> = Vec::new();
+
+let v = vec![1, 2, 3]; // 使用vec! 宏，由于有初始元素，因此可以自动类型推导
+```
+2. 更新向量中元素的值：`push`, `pop`, `extend`, 使用下标更改
+```rust
+let mut vec = Vec::new();
+vec.push(1);
+vec.push(2);
+// [1, 2]
+
+assert_eq!(vec.len(), 2);
+assert_eq!(vec[0], 1);
+
+assert_eq!(vec.pop(), Some(2)); // 注意返回值是Option<T>
+assert_eq!(vec.len(), 1);
+// [1]
+
+vec[0] = 7;
+assert_eq!(vec[0], 7);
+// [7]
+
+vec.extend([1, 2, 3]);
+// [7, 1, 2, 3]
+assert_eq!(vec, [7, 1, 2, 3]); // 居然可以直接和列表判断equal
+```
+3. 获取向量中的元素：直接使用下标或使用`get`
+```rust
+let v = vec![1, 2, 3, 4, 5];
+
+let third: &i32 = &v[2]; // 此方法得不到元素时会panic!
+
+// v.push(0); 此时会编译不通过！因为third是一个不可变引用，push需要一个可变引用，二者不能同时存在
+
+println!("The third element is {third}");
+
+let third: Option<&i32> = v.get(2); // safer
+match third {
+    Some(third) => println!("The third element is {third}"),
+    None => println!("There is no third element."),
+}
+```
+4. 使用`for`来迭代访问元素
+```rust
+let mut v = vec![100, 32, 57];
+for i in &mut v {
+    *i += 50;
+}
+```
+5. 使用`enum`来让向量中包含不同类别的元素
+```rust
+enum SpreadsheetCell {
+    Int(i32),
+    Float(f64),
+    Text(String),
+}
+
+let row = vec![
+    SpreadsheetCell::Int(3),
+    SpreadsheetCell::Text(String::from("blue")),
+    SpreadsheetCell::Float(10.12),
+];
+```
+6. 在向量离开作用域的时候，会自动释放其内存（因此针对其元素的引用此时也不能存在）
+
+## Storing UTF-8 Encoded Text with Strings
+
+1. 创建一个`String`的三种方式: `new`, `to_string`, `from`
+```rust 
+// new
+let mut s = String::new(); 
+
+// to_string
+let data = "initial contents";
+
+let s = data.to_string();
+
+// the method also works on a literal directly:
+let s = "initial contents".to_string();
+
+// from
+let s = String::from("initial contents");
+```
+
+2. 字符串拼接的三种方式：`push`, `push_str`, `+`
+```rust
+let mut s = String::from("lo");
+s.push('l'); // lol
+
+let mut s = String::from("foo");
+s.push_str("bar"); // foobar
+
+let s1 = String::from("Hello, ");
+let s2 = String::from("world!");
+let s3 = s1 + &s2; // note s1 has been moved here and can no longer be used
+// Hello, world!
+// 操作数类型必须是String + &str
+```
+3. `String`和`&str`不允许进行下标访问。原因：部分UTF8字符会占用两个byte，单个byte无意义（下标是按照byte计算的）
+4. `String`和`&str`可以进行切片，但是下标仍然是按照byte计算，并且不允许在两字节的UTF8字符中间截断（会panic！）
+5. 迭代访问的方法：`.chars()`和`.bytes()`
+
+## Storing Keys with Associated Values in Hash Maps
+
+1. 使用`new`创建，使用`insert`插入和更改，使用`get`获取   
+```rust
+use std::collections::HashMap;
+
+let mut scores = HashMap::new();
+
+scores.insert(String::from("Blue"), 10);
+scores.insert(String::from("Yellow"), 50);
+
+let team_name = String::from("Blue");
+let score = scores.get(&team_name) // 返回Option<&i32>
+                    .copied() // 得到Option<i32>
+                    .unwrap_or(0); // 得到i32
+```
+2. 迭代访问
+```rust
+for (key, value) in &scores
+```
+3. 如果一个键不存在，则为创建并赋值
+```rust
+let score = scores.entry(String::from("Yellow")).or_insert(50);
+*score += 1; 
+```

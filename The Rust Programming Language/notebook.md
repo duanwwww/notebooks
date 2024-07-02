@@ -908,3 +908,144 @@ for (key, value) in &scores
 let score = scores.entry(String::from("Yellow")).or_insert(50);
 *score += 1; 
 ```
+
+# Error Handling
+
+## Unrecoverable Errors with panic!
+
+程序在`panic`之后默认会进入`unwinding`模式清理数据，如果希望程序在`panic`之后立刻终止（比如在`release`版本中），使用以下代码：
+```toml
+// cargo.toml 
+[profile.release]
+panic = 'abort'
+```
+
+## Recoverable Errors with Result
+1. `Result`的定义
+```rust
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+```
+
+2. 比使用`match`进行处理更优雅的写法：`unwrap_or_else` + 闭包
+```rust
+use std::fs::File;
+use std::io::ErrorKind;
+
+fn main() {
+    let greeting_file = File::open("hello.txt").unwrap_or_else(|error| {
+        if error.kind() == ErrorKind::NotFound {
+            File::create("hello.txt").unwrap_or_else(|error| {
+                panic!("Problem creating the file: {error:?}");
+            })
+        } else {
+            panic!("Problem opening the file: {error:?}");
+        }
+    });
+}
+```
+
+3. 使用`unwrap`在出现`Err`时自动`panic`
+4. 使用`expect`在出现`Err`时自动`panic`并输出额外信息
+```rust
+use std::fs::File;
+
+fn main() {
+    let greeting_file = File::open("hello.txt")
+        .expect("hello.txt should be included in this project");
+}
+```
+输出类似：
+```powershell
+thread 'main' panicked at src/main.rs:5:10:
+hello.txt should be included in this project: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+```
+5. 传递`Result`来处理错误
+```rust
+use std::fs::File;
+use std::io::{self, Read};
+
+fn read_username_from_file() -> Result<String, io::Error> {
+    let username_file_result = File::open("hello.txt");
+
+    let mut username_file = match username_file_result {
+        Ok(file) => file,
+        Err(e) => return Err(e),
+    };
+
+    let mut username = String::new();
+
+    match username_file.read_to_string(&mut username) {
+        Ok(_) => Ok(username),
+        Err(e) => Err(e),
+    } // 注意这里没有分号，因此Ok(username)和Err(e)将成为返回值
+}
+```
+6. 使用`?`运算符来改写上述代码
+```rust
+use std::fs::File;
+use std::io::{self, Read};
+
+fn read_username_from_file() -> Result<String, io::Error> {
+    let mut username_file = File::open("hello.txt")?;
+    let mut username = String::new();
+    username_file.read_to_string(&mut username)?;
+    Ok(username)
+}
+```
+7. `?`运算符的额外功能：`?`运算符会对得到的错误类型自动调用`from`方法（如果实现了`From trait`），从而将得到的错误类型自动转化为函数的返回值所规定的错误类型。例如，我们将函数的返回值转化为`OurError`类型，并对其实现`From<io::Error>`特型，那么我们无需添加任何代码就可以让`?`运算符返回正确的错误类型。
+
+8. 继续简化代码
+```rust
+use std::fs::File;
+use std::io::{self, Read};
+
+fn read_username_from_file() -> Result<String, io::Error> {
+    let mut username = String::new();
+
+    File::open("hello.txt")?.read_to_string(&mut username)?;
+
+    Ok(username)
+}
+```
+```rust
+use std::fs;
+use std::io;
+
+fn read_username_from_file() -> Result<String, io::Error> {
+    fs::read_to_string("hello.txt")
+}
+```
+9. 使用`Box<dyn Error>`作为`main`函数的返回值：接受任何错误类型被`?`提早`return`，甚至可以是不同种类的。
+10. `main`函数允许任何实现了`std::process::Termination`特型的类型作为返回值（需要包含一个`report`函数，返回`ExitCode`）
+
+## To panic! or Not to panic!
+
+1. 应该默认使用Result 
+2. 在示例、原型代码和测试中，使用`panic!`是正确的（包括`unwrap`和`expect`）。在前两者中可以简化代码，在第三者中是为了告知测试人员测试不通过。
+3. 当拥有比编译器更多的信息，确信不会出现问题时，可以使用`unwrap`。更推荐使用`expect`来说明为什么认为不会出现问题。
+4. 使用他人的代码时可以使用`panic`，因为无法进行错误处理。
+5. 当认为代码进入`bad state`，继续运行可能有危险时应该`panic`
+6. 当失败（一般意义上）可能发生时应该返回`Result`，来要求对方处理这种可能发生的情况
+7. 自定义类型`type`来进行错误处理
+```rust
+pub struct Guess {
+    value: i32,
+}
+
+impl Guess {
+    pub fn new(value: i32) -> Guess {
+        if value < 1 || value > 100 {
+            panic!("Guess value must be between 1 and 100, got {value}.");
+        }
+
+        Guess { value }
+    }
+
+    pub fn value(&self) -> i32 {
+        self.value
+    }
+}
+```

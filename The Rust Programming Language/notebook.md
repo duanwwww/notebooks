@@ -654,7 +654,7 @@ if let Some(max) = config_max {
 }
 ```
 
-# Managing Growing Projects with Packages, Crates, and Modules
+# Chapter7: Managing Growing Projects with Packages, Crates, and Modules
 
 笔者感此书这里写的不是特别明白，因此笔者这里尝试按照自己的逻辑进行整理，希望使之更易读。
 
@@ -775,7 +775,7 @@ use std::io::{self, Write};
 3. 包`package`是一个或多个`crate`，用于提供一系列函数。它包含一个`Cargo.toml`文件来介绍如何build这些`crate`。一个`package`可以包含任意数量的`binary crate`，但是最多只能包含一个`library crate`
 4. cargo默认使用`src/main.rs`作为与包同名的`binary crate`的`root crate`，如果`src/lib.rs`存在，则会将其作为与包同名的`library crate`的`root crate`
 
-# Common Collections
+# Chapter 8: Common Collections
 
 ## Storing Lists of Values with Vectors
 
@@ -909,7 +909,7 @@ let score = scores.entry(String::from("Yellow")).or_insert(50);
 *score += 1; 
 ```
 
-# Error Handling
+# Chapter 9: Error Handling
 
 ## Unrecoverable Errors with panic!
 

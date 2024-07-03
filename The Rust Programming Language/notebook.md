@@ -1049,3 +1049,240 @@ impl Guess {
     }
 }
 ```
+
+# Chapter 10: Generic Types, Traits, and Lifetimes
+
+## Generic Data Types
+
+1. 综述：这是一个类似模板类的东西。写法也和C++的模板类基本相同，但是更为简洁（可以自动推导数据类型）。它设计的初衷是为了让代码能够在不同的数据类型上复用，减少重复代码。
+2. 在函数上定义：
+```rust
+fn largest<T>(list: &[T]) -> &T {
+    // --- something ---
+}
+```
+3. 在结构体及其方法上定义：
+```rust
+struct Point<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> Point<T> {
+    fn x(&self) -> &T {
+        &self.x
+    }
+}
+
+impl Point<f32> { // f32特有
+    fn distance_from_origin(&self) -> f32 {
+        (self.x.powi(2) + self.y.powi(2)).sqrt()
+    }
+}
+
+fn main() {
+    let integer = Point { x: 5, y: 10 };
+    let float = Point { x: 1.0, y: 4.0 };
+}
+```
+方法也可以定义自己的模板，例如：
+```rust
+struct Point<X1, Y1> {
+    x: X1,
+    y: Y1,
+}
+
+impl<X1, Y1> Point<X1, Y1> {
+    fn mixup<X2, Y2>(self, other: Point<X2, Y2>) -> Point<X1, Y2> {
+        Point {
+            x: self.x,
+            y: other.y,
+        }
+    }
+}
+
+fn main() {
+    let p1 = Point { x: 5, y: 10.4 };
+    let p2 = Point { x: "Hello", y: 'c' };
+
+    let p3 = p1.mixup(p2); // 自动类型推导太帅啦
+
+    println!("p3.x = {}, p3.y = {}", p3.x, p3.y);
+}
+```
+4. 在枚举上定义：
+```rust
+enum Option<T> {
+    Some(T),
+    None,
+}
+```
+
+## Traits: Defining Shared Behavior
+
+1. 综述：特型`trait`形如其他语言中的接口`interface`，用于规定不同类之间一些共享的行为
+2. 定义一个特型，然后指定其内部的方法（接口），可以为方法提供默认实现也可以不提供。默认实现可以依赖于特型内的其他方法，无论是否有默认实现。
+```rust
+pub trait Summary {
+    fn summarize_author(&self) -> String; // 无默认实现
+
+    fn summarize(&self) -> String { // 提供默认实现，并且依赖于其他接口
+        format!("(Read more from {}...)", self.summarize_author())
+    }
+}
+```
+3. 使用`impl`和`for`为类实现特型。不同类的实现方式可以不同。
+```rust
+pub trait Summary {
+    fn summarize(&self) -> String;
+}
+
+pub struct NewsArticle {
+    pub headline: String,
+    pub location: String,
+    pub author: String,
+    pub content: String,
+}
+
+impl Summary for NewsArticle {
+    fn summarize(&self) -> String {
+        format!("{}, by {} ({})", self.headline, self.author, self.location)
+    }
+}
+
+pub struct Tweet {
+    pub username: String,
+    pub content: String,
+    pub reply: bool,
+    pub retweet: bool,
+}
+
+impl Summary for Tweet {
+    fn summarize(&self) -> String {
+        format!("{}: {}", self.username, self.content)
+    }
+}
+```
+4. 为类实现特型的基本原则：类和特型至少有一个是自己定义的。
+5. 特型作为参数的两种写法
+```rust
+pub fn notify(item: &impl Summary) {
+    println!("Breaking news! {}", item.summarize());
+}
+
+pub fn notify<T: Summary>(item: &T) {
+    println!("Breaking news! {}", item.summarize());
+}
+
+pub fn notify(item1: &impl Summary, item2: &impl Summary) {} // 两个类型可以不同
+
+pub fn notify<T: Summary>(item1: &T, item2: &T) {} // 如果要约束类型相同，必须采用这种写法
+```
+6. 使用多个约束时，用`+`连接
+```rust
+pub fn notify(item: &(impl Summary + Display)) {}
+pub fn notify<T: Summary + Display>(item: &T) {}
+```
+7. 使用`where`来提升代码可读性
+```rust
+fn some_function<T: Display + Clone, U: Clone + Debug>(t: &T, u: &U) -> i32 {}
+
+fn some_function<T, U>(t: &T, u: &U) -> i32
+where
+    T: Display + Clone,
+    U: Clone + Debug,
+{}
+```
+8. 使用特型作为返回值，但需要注意的是返回值的类型仍然必须是一致的，而不能包含多个实现该特型的不同类型。
+```rust
+fn returns_summarizable() -> impl Summary {
+    Tweet {
+        username: String::from("horse_ebooks"),
+        content: String::from(
+            "of course, as you probably already know, people",
+        ),
+        reply: false,
+        retweet: false,
+    }
+}
+```
+9. 特型可以让我们有条件地为模板类实现方法
+```rust
+use std::fmt::Display;
+
+struct Pair<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> Pair<T> {
+    fn new(x: T, y: T) -> Self {
+        Self { x, y }
+    }
+}
+
+impl<T: Display + PartialOrd> Pair<T> {
+    fn cmp_display(&self) {
+        if self.x >= self.y {
+            println!("The largest member is x = {}", self.x);
+        } else {
+            println!("The largest member is y = {}", self.y);
+        }
+    }
+}
+```
+
+## Validating References with Lifetimes
+
+1. 综述：生命周期是针对引用而言的，任何引用都含有生命周期。rust含有非常简陋的自动推导生命周期的功能，如果代码较为复杂无法自动推导，则需要手动实现。
+2. 生命周期的记号：`'` + 名称，要求全部小写且较简短。
+```rust
+fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() {
+        x
+    } else {
+        y
+    }
+}
+```
+3. 对上述函数的生命周期的解释是：output的生命周期和input中参数的生命周期较短者相同。
+4. 函数和方法的生命周期分为`input`（施加于函数或方法的参数上）和`output`（施加于返回值上）两种。rust会按照三条基本规则尝试推导生命周期，如果失败，则需要手动标注。
+   1. 为所有`input`分配不同的生命周期`fn foo<'a, 'b>(x: &'a i32, y: &'b i32)`
+   2. 如果只有一个`input`，其生命周期会应用于所有的`output`
+   3. 如果有多个`input`，但是其中包含`&self`或`&mut self`，那么其生命周期会被应用于所有`output`
+5. 结构体也可以标注生命周期，这样就可以在其域内使用引用了。所有使用引用的域都必须正确标注生命周期。
+```rust
+struct ImportantExcerpt<'a> {
+    part: &'a str,
+}
+
+fn main() {
+    let novel = String::from("Call me Ishmael. Some years ago...");
+    let first_sentence = novel.split('.').next().expect("Could not find a '.'");
+    let i = ImportantExcerpt {
+        part: first_sentence,
+    };
+    // 直到i失效，part的引用都一直有效，因此是合法的
+}
+```
+6. `'static`代表此引用的生命周期一直持续到整个程序结束，例如所有`&str`实际上是`&'static str`。但是报错中提示使用`'static`常常代表程序在其他部分有问题，而不应该简单地这样修改。
+7. 模板类、特型、生命周期的联合使用
+```rust
+use std::fmt::Display;
+
+fn longest_with_an_announcement<'a, T>(
+    x: &'a str,
+    y: &'a str,
+    ann: T,
+) -> &'a str
+where
+    T: Display,
+{
+    println!("Announcement! {ann}");
+    if x.len() > y.len() {
+        x
+    } else {
+        y
+    }
+}
+```

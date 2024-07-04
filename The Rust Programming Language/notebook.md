@@ -35,7 +35,7 @@ $ ./main
 
 ## Hello, Cargo!
 
-1. 使用Cargo创建项目
+1. 使用cargo创建项目
 ```powershell
 $ cargo new hello_cargo
 $ cd hello_carge # cargo将会创建与项目同名的文件夹
@@ -47,6 +47,7 @@ $ cargo run # 执行可执行文件，如果有更改发生，会首先重新bui
 $ cargo check # 编译但不生成可执行文件
 $ cargo build --release # 生成运行速度更快的release版，但是编译时间更长
 ```
+3. 使用`--lib`让cargo创建`library crate`而不是`binary crate`
 
 # Chapter 2: Programming a Guessing Game
 
@@ -1286,3 +1287,71 @@ where
     }
 }
 ```
+
+# Chapter 11: Writing Automated Tests
+
+## How to Write Tests
+
+目录结构啥的看第三节吧，这里就简单介绍一下各种宏的使用
+1. `assert_eq!`判断相等，`assert_ne!`判断不等，`assert!`判断`true`。在以上宏后面可以添加输出信息，就像`println!`那样
+```rust
+#[test]
+fn greeting_contains_name() {
+    let result = greeting("Carol");
+    assert!(
+        result.contains("Carol"),
+        "Greeting did not contain name, value was `{}`",
+        result
+    );
+}
+```
+2. 可以添加`#[should_panic]`，这样测试时如果panic则会OK，否则会FAILED。但是这样如果测试因为其他原因panic也会通过，我们可以添加额外信息来要求输出的错误信息必须包含提供的子串，例如
+```rust
+#[should_panic(expected = "less than or equal to 100")]
+// 要求错误信息必须包含"less than or equal to 100"
+```
+3. 可以使用`Result`来作为测试函数的返回值，这样可以方便地使用`?`运算符。但是当希望返回`Err`时不可以使用`#[should_panic]`，在这种情况下不要使用`?`运算符，而是使用`assert!(rst.is_err())`
+
+## Controlling How Tests Are Run
+
+1. 注意给编译器传参本身就需要加`--`，例如`cargo test -- --ignored`
+1. 使用`--test-threads=<num>`来指定运行测试的线程数量。默认使用多线程
+2. 使用`--show-output`来展示测试输出的`println!`等调试信息。
+3. 在`cargo test`后加测试名来运行包含指定名称的测试
+4. 使用`#[ignore]`来忽略此测试（一般是那些开销很大，耗时很久的），使用`--ignored`来运行他们。如果想运行所有的测试，使用`--include-ignored`
+
+## Test Organization
+
+### unit test
+
+1. `#[cfg(test)]`用于指示编译器只在`cargo test`时运行此段测试，而不在`build`阶段运行
+2. `[test]`指示编译器此函数是一个测试函数
+3. 测试代码可以正常地使用私有函数
+```rust
+// /src/lib.rs
+pub fn add_two(a: i32) -> i32 {
+    internal_adder(a, 2)
+}
+
+fn internal_adder(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*; // 这样就可以测试私有函数
+    // 父类私有对子类不私有
+
+    #[test]
+    fn internal() {
+        assert_eq!(4, internal_adder(2, 2));
+    }
+}
+```
+
+### integration test
+
+4. 建立`tests`文件夹（与`src`文件夹同级），这是默认存放test文件的目录。`cargo`会将该目录下的文件单独编译成`crate`
+5. rust的测试分为三级：单元测试`unit test`（直接写在`lib.rs`文件里），整合测试`integration test`（写在`test`文件夹下的文件里），文档测试`doc test`（写在文档里的代码）。前一级测试失败时，不会测试下一级。
+6. 在`tests`文件夹里建立模块来简化代码时，不应该直接建立`name.rs`文件，这样会导致该文件内的辅助函数也被认为是测试函数而被运行。应该建立`name`文件夹并在文件夹下建立`mod.rs`文件（老式模块命名规则），这样就避免了直接运行辅助函数。
+7. 如果是`binary crate`而没有`lib.rs`文件，那么我们是不能在`tests`文件夹里直接使用`main.rs`里的函数的。这也是为什么大型项目都会包含`lib.rs`文件并对其进行测试。

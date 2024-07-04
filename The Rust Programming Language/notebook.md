@@ -4,6 +4,11 @@
 
 ---
 
+# 前言
+原书链接：
+
+https://doc.rust-lang.org/book/title-page.html
+
 # Chapter 1: Getting Started
 
 ## installation(skipped)
@@ -1355,3 +1360,12 @@ mod tests {
 5. rust的测试分为三级：单元测试`unit test`（直接写在`lib.rs`文件里），整合测试`integration test`（写在`test`文件夹下的文件里），文档测试`doc test`（写在文档里的代码）。前一级测试失败时，不会测试下一级。
 6. 在`tests`文件夹里建立模块来简化代码时，不应该直接建立`name.rs`文件，这样会导致该文件内的辅助函数也被认为是测试函数而被运行。应该建立`name`文件夹并在文件夹下建立`mod.rs`文件（老式模块命名规则），这样就避免了直接运行辅助函数。
 7. 如果是`binary crate`而没有`lib.rs`文件，那么我们是不能在`tests`文件夹里直接使用`main.rs`里的函数的。这也是为什么大型项目都会包含`lib.rs`文件并对其进行测试。
+
+# Chapter12: An I/O Project: Building a Command Line Program(skipped)
+笔者此处正好有一个想做的网页，搭一个在线TODO List，准备用rust写后端，因此决定跳过此章，写自己的项目来代替这个IO项目。如果有兴趣了解笔者的项目，请移步：
+
+https://github.com/duanwwww/MySite-TodoList-backend
+
+如果希望阅读第十二章，请移步：
+
+https://doc.rust-lang.org/book/ch12-00-an-io-project.html

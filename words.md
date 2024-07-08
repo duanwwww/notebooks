@@ -3,10 +3,18 @@
 # C
 # D
 # E
++ exclusion
+    + noun
+      1. the act or an instance of excluding 
+      2. the state of being excluded
 # F
 # G
 # H
 # I
++ intellect
+    + noun
+        1. the power of knowing as distinguished from the power to feel and to will : the capacity for knowledge
+        2. the capacity for rational or intelligent thought especially when highly developed
 # J
 # K
 # L
